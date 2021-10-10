@@ -5,7 +5,7 @@ librosa==0.8.0
 soundfile
 tensorboardX
 fire
-inflect==0.2.5
+inflect
 Unidecode==1.0.22
 pandas
 pretty_midi
