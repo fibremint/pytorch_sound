@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import enum
+from pathlib import Path
 
 from typing import Tuple, Dict, Any
 from tensorboardX import SummaryWriter
@@ -134,8 +135,8 @@ class Trainer:
         torch.cuda.manual_seed(self.seed)
 
         # load pretrained model
-        if self.step == 0 and pretrained_path:
-            self.load_pretrained_model()
+        # if self.step == 0 and pretrained_path:
+        #     self.load_pretrained_model()
 
         # valid loss
         self.best_valid_loss = np.finfo(np.float32).max
@@ -273,18 +274,29 @@ class Trainer:
         return self.save_prefix + '/' + module.__class__.__name__
 
     def load(self, load_optim: bool = True):
-        # make name
-        save_name = self.save_name
+        load_target_path = None
 
-        # save path
-        save_path = os.path.join(self.model_dir, save_name)
+        if self.pretrained_path:
+            log(f'load checkpoint from "{self.pretrained_path}"')
+            if not Path(self.pretrained_path).exists():
+                raise FileExistsError(f'pretrained path "{self.pretrained_path}" is not exist.')
 
-        # get latest file
-        check_files = glob.glob(os.path.join(save_path, '*'))
-        if check_files:
-            # load latest state dict
-            latest_file = max(check_files, key=os.path.getctime)
-            state_dict = torch.load(latest_file)
+            load_target_path = self.pretrained_path
+        else:
+            # make name
+            save_name = self.save_name
+            # save path
+            save_path = os.path.join(self.model_dir, save_name)
+            log(f'load latest checkpoint from model save path "{save_path}".')
+
+            # get latest file
+            check_files = glob.glob(os.path.join(save_path, '*'))
+            if check_files:
+                # load latest state dict
+                load_target_path = max(check_files, key=os.path.getctime)
+            
+        if load_target_path:
+            state_dict = torch.load(load_target_path)
             if 'seed' in state_dict:
                 self.seed = state_dict['seed']
             # load model
@@ -297,9 +309,9 @@ class Trainer:
             if self.scheduler is not None:
                 self.scheduler.load_state_dict(state_dict['scheduler'])
             self.step = state_dict['step']
-            log('checkpoint \'{}\' is loaded. previous step={}'.format(latest_file, self.step))
+            log('checkpoint \'{}\' is loaded. previous step={}'.format(load_target_path, self.step))
         else:
-            log('No any checkpoint in {}. Loading network skipped.'.format(save_path))
+            log('No any checkpoint in "{}" and pretrained path is not defined. Loading network skipped.'.format(save_path))
 
     def save(self, step: int):
 
